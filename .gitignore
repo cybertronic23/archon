@@ -29,3 +29,6 @@ debug/
 
 # Claude Code
 .claude/
+
+# Local scripts
+archon-rebuild.sh
