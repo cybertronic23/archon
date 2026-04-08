@@ -1,0 +1,18 @@
+[package]
+name = "archon-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+rustyline = { workspace = true }
+dirs = { workspace = true }
+toml = { workspace = true }
+archon-core = { path = "../archon-core" }
+archon-llm = { path = "../archon-llm" }
+archon-tools = { path = "../archon-tools" }

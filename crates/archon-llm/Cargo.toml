@@ -1,0 +1,16 @@
+[package]
+name = "archon-llm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { workspace = true }
+eventsource-stream = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+archon-core = { path = "../archon-core" }

@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "crates/archon-core",
+    "crates/archon-llm",
+    "crates/archon-tools",
+    "crates/archon-cli",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["stream", "json"] }
+eventsource-stream = "0.2"
+futures = "0.3"
+async-trait = "0.1"
+anyhow = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive", "env"] }
+bollard = "0.18"
+rustyline = { version = "15", features = ["with-file-history"] }
+dirs = "6"
+toml = "0.8"
