@@ -84,7 +84,7 @@ impl DockerSandbox {
             ]),
             working_dir: Some("/workspace".to_string()),
             host_config: Some(host_config),
-            network_disabled: Some(self.mode != SandboxMode::Off),
+            network_disabled: Some(self.mode == SandboxMode::Strict),
             ..Default::default()
         };
 

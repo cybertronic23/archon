@@ -9,7 +9,7 @@ use archon_core::{
     ToolRegistry,
 };
 use archon_llm::{AnthropicProvider, OpenAIProvider, RetryConfig};
-use archon_tools::{BashTool, EditTool, GlobTool, GrepTool, ReadTool, SandboxMode, WriteTool};
+use archon_tools::{BashTool, EditTool, GlobTool, GrepTool, ReadTool, SandboxMode, WebFetchTool, WebSearchTool, WriteTool};
 use clap::{CommandFactory, Parser};
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
@@ -82,6 +82,8 @@ When asked to perform tasks, use the available tools:
 - **write**: Create or overwrite a file with the given content. Parent directories are created automatically.
 - **glob**: Find files matching a glob pattern (e.g. "**/*.rs"). Optionally specify a base path.
 - **grep**: Search file contents using regex. Recursively searches directories, skipping binary files and hidden dirs.
+- **web_fetch**: Fetch and extract content from a web page. Converts HTML to readable markdown format.
+- **web_search**: Search the web for information. Returns search results with titles, URLs, and snippets.
 
 Always use tools when appropriate rather than guessing at file contents or command outputs. You can chain multiple tool calls to accomplish complex tasks."#;
 
@@ -337,6 +339,8 @@ async fn main() -> Result<()> {
     tools.register(Box::new(WriteTool));
     tools.register(Box::new(GlobTool));
     tools.register(Box::new(GrepTool));
+    tools.register(Box::new(WebFetchTool));
+    tools.register(Box::new(WebSearchTool));
 
     let permissions: Box<dyn PermissionHandler> = if args.allow_all {
         Box::new(AllowAllPermissions)

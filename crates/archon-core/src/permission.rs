@@ -26,7 +26,7 @@ pub trait PermissionHandler: Send + Sync {
     fn classify(&self, tool_name: &str, _input: &Value) -> RiskLevel {
         match tool_name {
             "read" | "glob" | "grep" => RiskLevel::Safe,
-            "edit" => RiskLevel::Moderate,
+            "edit" | "write" => RiskLevel::Moderate,
             "bash" => RiskLevel::Dangerous,
             _ => RiskLevel::Moderate,
         }
