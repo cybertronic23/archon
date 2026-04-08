@@ -26,3 +26,6 @@ debug/
 
 # Environment
 .env
+
+# Claude Code
+.claude/
