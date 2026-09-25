@@ -1,0 +1,23 @@
+---
+description: 禁止一切 Git 操作；仅由用户决定并执行 git
+alwaysApply: true
+---
+
+# 禁止 Git 操作
+
+用户明确要求：在本机 Cursor 中，助手**绝对不能**进行任何与 Git 相关的操作。
+
+## 硬性禁止
+
+- 禁止执行任何 `git` 命令（含 status / diff / log / add / commit / push / pull / checkout / branch / stash / rebase / tag 等全部子命令）
+- 禁止替用户决定是否提交、推送、建分支、打 tag、改远程
+- 禁止调用会触发 git 的封装（如自动 commit/PR 流程中的 git 步骤）
+
+## 允许范围
+
+- 可以修改代码、文档、配置及其他工作区文件
+- 仅当用户**明确口头/书面授权**某次具体 git 操作时，才可执行该次操作；默认一律不做
+
+## 与用户冲突时
+
+本规则优先于「用户要求提交时再 commit」等一般性 git 协作习惯：无明确授权则零 git。
