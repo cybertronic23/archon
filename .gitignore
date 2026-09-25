@@ -32,3 +32,6 @@ debug/
 
 # Local scripts
 archon-rebuild.sh
+
+# Local evaluation / private docs (do not commit)
+/doc/
