@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use archon_kinetic::Chronos;
-use archon_policy::{LimitSafetyGate, MockPolicy};
+use archon_perception::{ColorBlobDetector, PerceptionBridge, SyntheticColorCamera};
+use archon_policy::{ColorBlobPolicy, LimitSafetyGate, MockPolicy};
 use archon_runtime::{Executive, ExecutiveConfig, RuntimeEvent};
 use archon_sim::SimBackend;
 use clap::Parser;
@@ -16,16 +17,28 @@ use tokio::sync::Mutex;
 #[derive(Parser, Debug)]
 #[command(
     name = "archon-embodied",
-    about = "Archon Embodied Agent OS — sim-first control loop MVP"
+    about = "Archon Embodied Agent OS — sim-first control loop (M0/M1)"
 )]
 struct Args {
     /// Task id recorded in the episode
     #[arg(long, default_value = "demo_waypoints")]
     task_id: String,
 
-    /// Backend: currently only `sim` (real comes later via same RobotBackend trait)
+    /// Backend: currently only `sim`
     #[arg(long, default_value = "sim")]
     backend: String,
+
+    /// Policy: `mock` (M0) or `color_blob` (M1 vision-gated)
+    #[arg(long, default_value = "mock")]
+    policy: String,
+
+    /// Camera: `none` | `synthetic` | `synthetic_blank`
+    #[arg(long, default_value = "none")]
+    camera: String,
+
+    /// Persist RGB frames under episode bundle media/
+    #[arg(long, default_value_t = true)]
+    save_frames: bool,
 
     /// Control rate Hz for Chronos interpolation
     #[arg(long, default_value_t = 50.0)]
@@ -35,7 +48,7 @@ struct Args {
     #[arg(long, default_value_t = 0)]
     step_ms: u64,
 
-    /// Directory for episode JSON (default: ~/.archon/episodes)
+    /// Directory for episode bundles (default: ~/.archon/episodes)
     #[arg(long)]
     episode_dir: Option<PathBuf>,
 
@@ -60,6 +73,23 @@ async fn main() -> Result<()> {
         );
     }
 
+    let camera = if args.policy == "color_blob" && args.camera == "none" {
+        "synthetic".to_string()
+    } else {
+        args.camera.clone()
+    };
+
+    let episode_root = args.episode_dir.unwrap_or_else(|| {
+        let home = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
+        home.join(".archon").join("episodes")
+    });
+
+    let episode_id = format!("ep-{}", archon_embodied::now_us());
+    let bundle_dir = episode_root.join(&episode_id);
+
     let chronos = Chronos::new(
         args.rate_hz,
         (1..=6).map(|i| format!("joint_{i}")).collect(),
@@ -68,6 +98,7 @@ async fn main() -> Result<()> {
         ExecutiveConfig {
             task_id: args.task_id.clone(),
             control_step_ms: args.step_ms,
+            episode_id: Some(episode_id.clone()),
             ..Default::default()
         },
         chronos,
@@ -124,35 +155,97 @@ async fn main() -> Result<()> {
         });
     }
 
-    let policy = MockPolicy::new();
+    let mut perception = match camera.as_str() {
+        "none" => None,
+        "synthetic" | "synthetic_blob" => {
+            let mut bridge = PerceptionBridge::new(
+                Box::new(SyntheticColorCamera::with_blob()),
+                ColorBlobDetector::default(),
+            );
+            if args.save_frames {
+                bridge = bridge.with_media_root(&bundle_dir);
+            }
+            Some(bridge)
+        }
+        "synthetic_blank" => {
+            let mut bridge = PerceptionBridge::new(
+                Box::new(SyntheticColorCamera::blank()),
+                ColorBlobDetector::default(),
+            );
+            if args.save_frames {
+                bridge = bridge.with_media_root(&bundle_dir);
+            }
+            Some(bridge)
+        }
+        other => anyhow::bail!("unknown camera '{other}'; use none | synthetic | synthetic_blank"),
+    };
+
     let safety = LimitSafetyGate::default();
     let task_context = serde_json::json!({
         "task_id": args.task_id,
         "backend": args.backend,
+        "policy": args.policy,
+        "camera": camera,
     });
-
-    println!("Running embodied loop: task={} backend=sim", args.task_id);
-    let (result, episode) = executive
-        .run_once(&policy, &safety, backend, task_context)
-        .await
-        .context("executive run_once")?;
-
-    let episode_dir = args.episode_dir.unwrap_or_else(|| {
-        let home = std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-        home.join(".archon").join("episodes")
-    });
-    let path = episode_dir.join(format!("{}.json", episode.id));
-    episode
-        .save_to_file(&path)
-        .with_context(|| format!("save episode to {}", path.display()))?;
 
     println!(
-        "status={:?} commands_sent={} duration_ms={} episode={}",
-        result.status, result.commands_sent, result.duration_ms, path.display()
+        "Running embodied loop: task={} backend=sim policy={} camera={}",
+        args.task_id, args.policy, camera
     );
+
+    let (result, episode) = match args.policy.as_str() {
+        "mock" => {
+            let policy = MockPolicy::new();
+            if let Some(ref mut bridge) = perception {
+                executive
+                    .run_once_with_perception(
+                        &policy,
+                        &safety,
+                        backend,
+                        Some(bridge),
+                        task_context,
+                    )
+                    .await
+            } else {
+                executive
+                    .run_once(&policy, &safety, backend, task_context)
+                    .await
+            }
+        }
+        "color_blob" => {
+            let policy = ColorBlobPolicy::new();
+            let bridge = perception
+                .as_mut()
+                .context("color_blob policy requires a camera")?;
+            executive
+                .run_once_with_perception(&policy, &safety, backend, Some(bridge), task_context)
+                .await
+        }
+        other => anyhow::bail!("unknown policy '{other}'; use mock | color_blob"),
+    }
+    .context("executive run_once")?;
+
+    if perception.is_some() && args.save_frames {
+        episode
+            .save_bundle(&bundle_dir)
+            .with_context(|| format!("save episode bundle to {}", bundle_dir.display()))?;
+        println!(
+            "status={:?} commands_sent={} duration_ms={} episode={}",
+            result.status,
+            result.commands_sent,
+            result.duration_ms,
+            bundle_dir.join("episode.json").display()
+        );
+    } else {
+        let path = episode_root.join(format!("{}.json", episode.id));
+        episode
+            .save_to_file(&path)
+            .with_context(|| format!("save episode to {}", path.display()))?;
+        println!(
+            "status={:?} commands_sent={} duration_ms={} episode={}",
+            result.status, result.commands_sent, result.duration_ms, path.display()
+        );
+    }
     println!("message={}", result.message);
 
     Ok(())

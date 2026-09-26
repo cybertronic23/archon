@@ -32,9 +32,9 @@ impl Policy for MockPolicy {
     }
 
     async fn propose(&self, state: &WorldState) -> Result<ActionProposal> {
-        let dof = state.joints.dof().max(self.joint_names.len()).min(6);
+        let dof = state.joints().dof().max(self.joint_names.len()).min(6);
         let start: Vec<f64> = (0..dof)
-            .map(|i| state.joints.positions.get(i).copied().unwrap_or(0.0))
+            .map(|i| state.joints().positions.get(i).copied().unwrap_or(0.0))
             .collect();
 
         // Small excursion within ±0.4 rad of current pose.
@@ -51,7 +51,7 @@ impl Policy for MockPolicy {
             JointWaypoint {
                 t_sec: 0.0,
                 positions: start.clone(),
-                gripper_open: Some(state.gripper_open),
+                gripper_open: Some(state.gripper_open()),
             },
             JointWaypoint {
                 t_sec: 1.0,
@@ -108,18 +108,20 @@ impl Policy for WamAdapterStub {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use archon_embodied::JointState;
+    use archon_embodied::{JointState, ProprioState};
 
     #[tokio::test]
     async fn mock_emits_three_waypoints() {
         let policy = MockPolicy::new();
         let state = WorldState {
             stamp_us: 0,
-            joints: JointState::new(
-                policy.joint_names.clone(),
-                vec![0.0; 6],
+            proprio: ProprioState::new(
+                JointState::new(policy.joint_names.clone(), vec![0.0; 6]),
+                0.5,
             ),
-            gripper_open: 0.5,
+            annotations: vec![],
+            modality_keys: vec![],
+            primary_image_uri: None,
             task_context: serde_json::json!({}),
         };
         let p = policy.propose(&state).await.unwrap();

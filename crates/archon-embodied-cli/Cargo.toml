@@ -13,6 +13,7 @@ archon-embodied = { path = "../archon-embodied" }
 archon-runtime = { path = "../archon-runtime" }
 archon-kinetic = { path = "../archon-kinetic" }
 archon-policy = { path = "../archon-policy" }
+archon-perception = { path = "../archon-perception" }
 archon-sim = { path = "../archon-sim" }
 anyhow = { workspace = true }
 clap = { workspace = true }

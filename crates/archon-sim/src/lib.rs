@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use archon_embodied::{
-    now_us, CancelToken, JointCommand, JointState, Observation, RobotBackend,
+    now_us, CancelToken, JointCommand, JointState, Observation, ProprioState, RobotBackend,
 };
 use archon_ros2::{messages::JointStateMsg, TopicContract};
 use async_trait::async_trait;
@@ -107,12 +107,10 @@ impl RobotBackend for SimBackend {
         if !g.connected {
             bail!("sim backend not connected");
         }
-        Ok(Observation {
-            stamp_us: now_us(),
-            joints: g.joints.clone(),
-            gripper_open: g.gripper_open,
-            image: None,
-        })
+        Ok(Observation::from_proprio(ProprioState::new(
+            g.joints.clone(),
+            g.gripper_open,
+        )))
     }
 
     async fn execute_command(&mut self, cmd: &JointCommand, cancel: &CancelToken) -> Result<()> {
@@ -184,8 +182,8 @@ mod tests {
         let cancel = CancelToken::new();
         sim.execute_command(&cmd, &cancel).await.unwrap();
         let obs = sim.read_observation().await.unwrap();
-        assert!((obs.joints.positions[0] - 0.1).abs() < 1e-9);
-        assert!((obs.gripper_open - 0.8).abs() < 1e-9);
+        assert!((obs.joints().positions[0] - 0.1).abs() < 1e-9);
+        assert!((obs.gripper_open() - 0.8).abs() < 1e-9);
         assert!(sim.last_joint_states_msg().await.is_some());
     }
 

@@ -7,6 +7,7 @@ description = "Embodied executive: state machine, event bus, resource locks, arb
 [dependencies]
 archon-embodied = { path = "../archon-embodied" }
 archon-kinetic = { path = "../archon-kinetic" }
+archon-perception = { path = "../archon-perception" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }

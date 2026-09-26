@@ -87,15 +87,15 @@ pub mod messages {
     }
 }
 
-use archon_embodied::{JointCommand, JointState, Observation, now_us};
+use archon_embodied::{JointCommand, JointState, Observation, ProprioState, now_us};
 use messages::{GripperCommandMsg, JointCommandMsg, JointStateMsg};
 
 impl From<&Observation> for JointStateMsg {
     fn from(obs: &Observation) -> Self {
         Self {
-            name: obs.joints.names.clone(),
-            position: obs.joints.positions.clone(),
-            velocity: obs.joints.velocities.clone(),
+            name: obs.joints().names.clone(),
+            position: obs.joints().positions.clone(),
+            velocity: obs.joints().velocities.clone(),
             stamp_ns: obs.stamp_us.saturating_mul(1000),
         }
     }
@@ -112,16 +112,16 @@ impl From<&JointCommand> for JointCommandMsg {
 }
 
 pub fn observation_from_joint_state(msg: &JointStateMsg, gripper_open: f64) -> Observation {
-    Observation {
-        stamp_us: msg.stamp_ns / 1000,
-        joints: JointState {
+    let mut obs = Observation::from_proprio(ProprioState::new(
+        JointState {
             names: msg.name.clone(),
             positions: msg.position.clone(),
             velocities: msg.velocity.clone(),
         },
         gripper_open,
-        image: None,
-    }
+    ));
+    obs.stamp_us = msg.stamp_ns / 1000;
+    obs
 }
 
 pub fn gripper_msg(open: f64) -> GripperCommandMsg {

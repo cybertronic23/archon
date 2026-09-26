@@ -32,11 +32,15 @@ User → LLM stream → tool_use → ToolRegistry → 结果回传 → 循环至
 
 ---
 
-## 快速开始（具身 MVP）
+## 快速开始（具身）
 
 ```bash
-# 仿真垂直切片：MockPolicy 路点 → 安全门 → 插值下发 → 写 Episode
+# M0：MockPolicy 路点 → 安全门 → 插值下发 → 写 Episode
 cargo run -p archon-embodied-cli -- --task-id demo_waypoints --step-ms 0
+
+# M1：合成相机 + ColorBlobPolicy（视觉门控）
+cargo run -p archon-embodied-cli -- \
+  --task-id pick_red_blob_sim --policy color_blob --camera synthetic --step-ms 0
 
 # 中途抢占
 cargo run -p archon-embodied-cli -- --step-ms 5 --auto-stop-ms 200
@@ -69,7 +73,8 @@ archon/
     ├── archon-embodied/       # 类型与 Policy / SafetyGate / RobotBackend
     ├── archon-runtime/        # Executive、事件总线、资源锁、Arbiter
     ├── archon-kinetic/        # Chronos 插值、关节限位
-    ├── archon-policy/         # MockPolicy、LimitSafetyGate、VLA/WAM stub
+    ├── archon-policy/         # MockPolicy、ColorBlobPolicy、LimitSafetyGate、VLA/WAM stub
+    ├── archon-perception/     # CameraSource、合成相机、色块检测、Observation enrich
     ├── archon-ros2/           # 话题/消息契约（sim↔real）
     ├── archon-sim/            # 进程内仿真 Backend
     ├── archon-embodied-cli/   # 二进制 archon-embodied
@@ -98,13 +103,14 @@ archon/
 
 ## 已完成能力（摘要）
 
-### Embodied（M0）
+### Embodied（M0 + M1）
 
-- 统一类型：`Observation` / `ActionProposal` / `ExecutionResult` / `Episode`
-- `MockPolicy` + 关节限位 `SafetyGate` + Chronos（≥50Hz）
+- 统一类型：`Observation`（`proprio` + `modalities` + `annotations`）/ `ActionProposal` / `Episode`
+- `MockPolicy` + `ColorBlobPolicy`（vision-gated）+ 关节限位 `SafetyGate` + Chronos（≥50Hz）
+- `archon-perception`：合成 RGB、色块检测、`images.primary` MediaRef
 - `SimBackend`（与 `/archon/arm/*` 话题契约对齐）
-- Executive：资源锁、事件抢占（stop / estop）、Episode JSON 落盘
-- CLI：`archon-embodied`
+- Executive：感知 enrich、资源锁、事件抢占、Episode + media bundle
+- CLI：`archon-embodied`（`--policy` / `--camera`）
 
 ### Digital（源码能力；启用 workspace 后可用）
 
@@ -120,7 +126,8 @@ archon/
 
 | 里程碑 | 内容 |
 |--------|------|
-| **M1** | 感知桥接；色块/抓放类原语或轻量策略 |
+| **M0** | ✅ MockPolicy + SimBackend + Executive + Episode |
+| **M1** | ✅ 感知桥接；`images.primary` + ColorBlobPolicy 视觉门控 |
 | **M2** | 真机 SO101 / Microduck 等作为第二 `RobotBackend` |
 | **M3** | `VlaAdapter`（API 或 PyO3）+ 低频 action chunk |
 | **M4** | 开发平面 subagent（草案/仿真评测/复盘，无实机控制权） |

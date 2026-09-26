@@ -1,10 +1,11 @@
 [workspace]
 members = [
-    # Embodied Agent OS (physical plane) — M0
+    # Embodied Agent OS (physical plane) — M0/M1
     "crates/archon-embodied",
     "crates/archon-runtime",
     "crates/archon-kinetic",
     "crates/archon-policy",
+    "crates/archon-perception",
     "crates/archon-ros2",
     "crates/archon-sim",
     "crates/archon-embodied-cli",

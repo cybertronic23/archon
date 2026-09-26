@@ -100,8 +100,13 @@ mod tests {
         };
         let state = WorldState {
             stamp_us: 0,
-            joints: archon_embodied::JointState::new(vec![], vec![]),
-            gripper_open: 0.0,
+            proprio: archon_embodied::ProprioState::new(
+                archon_embodied::JointState::new(vec![], vec![]),
+                0.0,
+            ),
+            annotations: vec![],
+            modality_keys: vec![],
+            primary_image_uri: None,
             task_context: serde_json::json!({}),
         };
         match gate.check_proposal(&proposal, &state).await {

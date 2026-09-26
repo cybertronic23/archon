@@ -69,7 +69,7 @@ pub trait RobotBackendExt: RobotBackend {
         Ok(ExecutionResult::completed(
             sent,
             start.elapsed().as_millis() as u64,
-            obs.joints,
+            obs.joints().clone(),
         ))
     }
 }

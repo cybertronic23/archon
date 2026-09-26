@@ -4,10 +4,11 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use archon_embodied::{
-    CancelToken, Episode, ExecutionResult, ExecutionStatus, Policy, RobotBackend, RobotBackendExt,
-    SafetyGate, SafetyVerdict, WorldState,
+    CancelToken, Episode, ExecutionResult, ExecutionStatus, Observation, Policy, RobotBackend,
+    RobotBackendExt, SafetyGate, SafetyVerdict, WorldState,
 };
 use archon_kinetic::Chronos;
+use archon_perception::PerceptionBridge;
 use tokio::sync::Mutex;
 
 use crate::arbiter::{Arbiter, ArbiterAction};
@@ -18,6 +19,8 @@ pub struct ExecutiveConfig {
     pub task_id: String,
     pub control_step_ms: u64,
     pub max_proposal_timeout_ms: u64,
+    /// Optional fixed episode id (so CLI can pre-create media dirs).
+    pub episode_id: Option<String>,
 }
 
 impl Default for ExecutiveConfig {
@@ -26,6 +29,7 @@ impl Default for ExecutiveConfig {
             task_id: "demo_waypoints".into(),
             control_step_ms: 20, // 50 Hz
             max_proposal_timeout_ms: 30_000,
+            episode_id: None,
         }
     }
 }
@@ -64,12 +68,25 @@ impl Executive {
         });
     }
 
-    /// Run one embodied cycle: observe → propose → safety → interpolate → execute.
+    /// Run one embodied cycle: observe → [enrich] → propose → safety → interpolate → execute.
     pub async fn run_once(
         &mut self,
         policy: &dyn Policy,
         safety: &dyn SafetyGate,
         backend: Arc<Mutex<dyn RobotBackend>>,
+        task_context: serde_json::Value,
+    ) -> Result<(ExecutionResult, Episode)> {
+        self.run_once_with_perception(policy, safety, backend, None, task_context)
+            .await
+    }
+
+    /// Same as `run_once`, optionally enriching proprio with perception modalities.
+    pub async fn run_once_with_perception(
+        &mut self,
+        policy: &dyn Policy,
+        safety: &dyn SafetyGate,
+        backend: Arc<Mutex<dyn RobotBackend>>,
+        mut perception: Option<&mut PerceptionBridge>,
         task_context: serde_json::Value,
     ) -> Result<(ExecutionResult, Episode)> {
         self.cancel.reset();
@@ -80,7 +97,11 @@ impl Executive {
             b.name().to_string()
         };
 
-        let episode_id = format!("ep-{}", archon_embodied::now_us());
+        let episode_id = self
+            .config
+            .episode_id
+            .clone()
+            .unwrap_or_else(|| format!("ep-{}", archon_embodied::now_us()));
         let mut episode = Episode::new(&episode_id, &self.config.task_id, &backend_name);
 
         // Spawn event watcher that cancels on preempt events.
@@ -102,10 +123,29 @@ impl Executive {
             b.connect().await.context("backend connect")?;
         }
 
-        let obs = {
+        let body = {
             let b = backend.lock().await;
             b.read_observation().await.context("read observation")?
         };
+
+        let obs: Observation = if let Some(bridge) = perception.as_mut() {
+            let enriched = bridge
+                .enrich(body)
+                .await
+                .context("perception enrich")?;
+            episode.push(
+                "perception",
+                serde_json::json!({
+                    "camera": bridge.camera_name(),
+                    "modality_keys": enriched.modalities.keys().cloned().collect::<Vec<_>>(),
+                    "annotations": enriched.annotations.len(),
+                }),
+            );
+            enriched
+        } else {
+            body
+        };
+
         episode.push(
             "observation",
             serde_json::to_value(&obs).unwrap_or_default(),
@@ -123,16 +163,23 @@ impl Executive {
         );
 
         let resources = if proposal.required_resources.is_empty() {
-            archon_embodied::ActionProposal::default_resources()
+            // Empty resources: skip lock acquisition (e.g. vision miss with no motion).
+            if proposal.waypoints.is_empty() {
+                vec![]
+            } else {
+                archon_embodied::ActionProposal::default_resources()
+            }
         } else {
             proposal.required_resources.clone()
         };
 
-        if let Err(e) = self.locks.try_acquire(&resources, "executive") {
-            episode.push("lock_denied", serde_json::json!({ "error": e.to_string() }));
-            episode.finish();
-            watch.abort();
-            return Ok((ExecutionResult::rejected(e.to_string()), episode));
+        if !resources.is_empty() {
+            if let Err(e) = self.locks.try_acquire(&resources, "executive") {
+                episode.push("lock_denied", serde_json::json!({ "error": e.to_string() }));
+                episode.finish();
+                watch.abort();
+                return Ok((ExecutionResult::rejected(e.to_string()), episode));
+            }
         }
 
         let verdict = safety.check_proposal(&proposal, &state).await;
@@ -194,10 +241,7 @@ impl Executive {
             serde_json::to_value(&result).unwrap_or_default(),
         );
 
-        if matches!(
-            result.status,
-            ExecutionStatus::Completed
-        ) {
+        if matches!(result.status, ExecutionStatus::Completed) {
             self.events.publish(RuntimeEvent::TaskCompleted {
                 task_id: self.config.task_id.clone(),
             });

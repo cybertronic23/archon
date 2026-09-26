@@ -67,6 +67,7 @@ dependencies = [
  "anyhow",
  "archon-embodied",
  "archon-kinetic",
+ "archon-perception",
  "archon-policy",
  "archon-runtime",
  "archon-sim",
@@ -83,6 +84,18 @@ dependencies = [
  "archon-embodied",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "archon-perception"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "archon-embodied",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -115,6 +128,7 @@ dependencies = [
  "anyhow",
  "archon-embodied",
  "archon-kinetic",
+ "archon-perception",
  "async-trait",
  "futures",
  "serde",
