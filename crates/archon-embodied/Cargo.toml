@@ -1,0 +1,14 @@
+[package]
+name = "archon-embodied"
+version = "0.1.0"
+edition = "2021"
+description = "Embodied Agent OS core types and traits (Observation, Policy, RobotBackend, Safety)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }

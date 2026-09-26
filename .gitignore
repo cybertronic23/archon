@@ -33,5 +33,18 @@ debug/
 # Local scripts
 archon-rebuild.sh
 
-# Local evaluation / private docs (do not commit)
+# Temporary backups (e.g. offline lockfile rebuild)
+*.bak
+Cargo.lock.full.bak
+
+# Legacy path (removed); keep ignore in case it reappears
 /doc/
+
+# Developer notes — not ready to publish; keep local for now
+/notes/
+
+# Local cargo vendor / home used for offline builds
+/vendor/
+/.cargo-home/
+/third_party/
+/.cargo/

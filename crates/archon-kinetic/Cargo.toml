@@ -1,0 +1,11 @@
+[package]
+name = "archon-kinetic"
+version = "0.1.0"
+edition = "2021"
+description = "Chronos interpolator and joint limit helpers for embodied runtime"
+
+[dependencies]
+archon-embodied = { path = "../archon-embodied" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,16 @@
+[package]
+name = "archon-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Embodied executive: state machine, event bus, resource locks, arbiter"
+
+[dependencies]
+archon-embodied = { path = "../archon-embodied" }
+archon-kinetic = { path = "../archon-kinetic" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }

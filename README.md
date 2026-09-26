@@ -25,6 +25,22 @@ Claude Code 展示了一种强大的交互范式——LLM 不再只是问答，�
 
 没有前端。这是一个纯终端应用，Phase 1 直接用 stdin/stdout 做 REPL。
 
+## 双平面架构（Digital + Embodied）
+
+本仓库同时包含：
+
+1. **数字 Agent Harness**（原有）：LLM tool_use 循环，见下文「项目结构」中的 `archon-core` / `archon-llm` / `archon-tools` / `archon-cli`。
+2. **具身 Agent OS**（`dev-physical-ai`）：模型无关的 Observation→Policy→Safety→Execute→Episode 闭环，仿真优先、ROS2 话题契约可迁真机。
+
+具身相关 crates：`archon-embodied`、`archon-runtime`、`archon-kinetic`、`archon-policy`、`archon-ros2`、`archon-sim`、`archon-embodied-cli`。
+
+```bash
+# 跑通仿真垂直切片（Episode 默认写入 ~/.archon/episodes）
+cargo run -p archon-embodied-cli -- --task-id demo_waypoints --step-ms 0
+```
+
+用户文档见 [`docs/embodied-getting-started.md`](docs/embodied-getting-started.md)；开发沉淀见本地 `notes/`（暂未纳入版本库）。
+
 ## 项目结构
 
 ```
