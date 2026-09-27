@@ -1,0 +1,3 @@
+# MuJoCo worker for Archon M2a
+mujoco>=3.1.0
+numpy>=1.24

@@ -130,6 +130,14 @@ impl JointLimits {
         }
     }
 
+    /// Planar mobile base: x,y in meters, yaw in rad (allow full ±2π turns).
+    pub fn planar_base_3dof() -> Self {
+        Self {
+            lower: vec![-5.0, -5.0, -6.4],
+            upper: vec![5.0, 5.0, 6.4],
+        }
+    }
+
     pub fn contains(&self, positions: &[f64]) -> Result<(), String> {
         for (i, &p) in positions.iter().enumerate() {
             let lo = self.lower.get(i).copied().unwrap_or(f64::NEG_INFINITY);

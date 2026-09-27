@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "builtins": {
+    "desktop_arm": {
+      "description": "Simplified 6-DoF desktop arm + table + red blob (Archon default)",
+      "mjcf": "models/desktop_arm_red_blob.xml",
+      "camera": "scene",
+      "default_instruction": "wave"
+    },
+    "desktop_arm_red_blob": {
+      "description": "Alias of desktop_arm",
+      "mjcf": "models/desktop_arm_red_blob.xml",
+      "camera": "scene",
+      "default_instruction": "wave"
+    },
+    "diff_car": {
+      "description": "Planar mobile base (x,y,yaw) for LLM drive demos",
+      "mjcf": "models/diff_car.xml",
+      "camera": "scene",
+      "default_instruction": "forward"
+    }
+  },
+  "remote_presets": {
+    "menagerie_readme": {
+      "description": "Google DeepMind MuJoCo Menagerie (clone or download a robot folder; point --model at its scene.xml)",
+      "url": "https://github.com/google-deepmind/mujoco_menagerie",
+      "note": "Not auto-fetched as a single file; use a specific robot zip/path after download."
+    }
+  }
+}

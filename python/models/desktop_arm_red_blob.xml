@@ -1,0 +1,74 @@
+<mujoco model="desktop_arm_red_blob">
+  <compiler angle="radian" coordinate="local" inertiafromgeom="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+  </visual>
+
+  <default>
+    <joint limited="true" damping="1" armature="0.01"/>
+    <geom friction="1 0.5 0.1" rgba="0.7 0.7 0.7 1"/>
+  </default>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="256" height="256"/>
+    <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="256" height="256"/>
+    <material name="matplane" reflectance="0.3" texture="texplane" texrepeat="4 4"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 2" dir="0 0 -1" diffuse="1 1 1"/>
+    <geom name="floor" type="plane" size="1 1 0.05" material="matplane"/>
+
+    <!-- Red target blob on table -->
+    <body name="table" pos="0.35 0 0.4">
+      <geom type="box" size="0.25 0.2 0.02" rgba="0.55 0.4 0.25 1"/>
+    </body>
+    <body name="red_blob" pos="0.4 0 0.45">
+      <geom name="red_blob_geom" type="box" size="0.03 0.03 0.03" rgba="0.9 0.05 0.05 1" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Simplified 6-DoF serial arm (position actuators) -->
+    <body name="base" pos="0 0 0.05">
+      <geom type="cylinder" size="0.05 0.05" rgba="0.2 0.2 0.25 1"/>
+      <body name="link1" pos="0 0 0.05">
+        <joint name="joint_1" type="hinge" axis="0 0 1" range="-2.5 2.5"/>
+        <geom type="capsule" fromto="0 0 0 0 0 0.12" size="0.03"/>
+        <body name="link2" pos="0 0 0.12">
+          <joint name="joint_2" type="hinge" axis="0 1 0" range="-2.0 2.0"/>
+          <geom type="capsule" fromto="0 0 0 0.15 0 0" size="0.025"/>
+          <body name="link3" pos="0.15 0 0">
+            <joint name="joint_3" type="hinge" axis="0 1 0" range="-2.0 2.0"/>
+            <geom type="capsule" fromto="0 0 0 0.12 0 0" size="0.022"/>
+            <body name="link4" pos="0.12 0 0">
+              <joint name="joint_4" type="hinge" axis="1 0 0" range="-2.5 2.5"/>
+              <geom type="capsule" fromto="0 0 0 0.08 0 0" size="0.02"/>
+              <body name="link5" pos="0.08 0 0">
+                <joint name="joint_5" type="hinge" axis="0 1 0" range="-2.0 2.0"/>
+                <geom type="capsule" fromto="0 0 0 0.06 0 0" size="0.018"/>
+                <body name="link6" pos="0.06 0 0">
+                  <joint name="joint_6" type="hinge" axis="1 0 0" range="-2.5 2.5"/>
+                  <geom type="sphere" size="0.025" rgba="0.3 0.3 0.35 1"/>
+                  <camera name="primary" pos="0.05 0 0.08" xyaxes="0 -1 0 0.3 0 1" fovy="60"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- Fixed scene camera looking at table (more reliable for red blob) -->
+    <camera name="scene" pos="0.5 -0.6 0.7" xyaxes="1 0.4 0 0 0.3 1" fovy="50"/>
+  </worldbody>
+
+  <actuator>
+    <position name="act_1" joint="joint_1" kp="80" ctrlrange="-2.5 2.5"/>
+    <position name="act_2" joint="joint_2" kp="80" ctrlrange="-2.0 2.0"/>
+    <position name="act_3" joint="joint_3" kp="80" ctrlrange="-2.0 2.0"/>
+    <position name="act_4" joint="joint_4" kp="60" ctrlrange="-2.5 2.5"/>
+    <position name="act_5" joint="joint_5" kp="60" ctrlrange="-2.0 2.0"/>
+    <position name="act_6" joint="joint_6" kp="40" ctrlrange="-2.5 2.5"/>
+  </actuator>
+</mujoco>

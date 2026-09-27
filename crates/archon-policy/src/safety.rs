@@ -29,6 +29,14 @@ impl LimitSafetyGate {
             ..Self::default()
         }
     }
+
+    pub fn for_planar_base() -> Self {
+        Self {
+            limits: JointLimits::planar_base_3dof(),
+            max_waypoint_t_sec: 60.0,
+            max_commands_hint: 50 * 60,
+        }
+    }
 }
 
 #[async_trait]

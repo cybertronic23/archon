@@ -6,6 +6,7 @@ members = [
     "crates/archon-kinetic",
     "crates/archon-policy",
     "crates/archon-perception",
+    "crates/archon-sim-bridge",
     "crates/archon-ros2",
     "crates/archon-sim",
     "crates/archon-embodied-cli",

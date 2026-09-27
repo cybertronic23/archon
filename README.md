@@ -35,12 +35,24 @@ User → LLM stream → tool_use → ToolRegistry → 结果回传 → 循环至
 ## 快速开始（具身）
 
 ```bash
-# M0：MockPolicy 路点 → 安全门 → 插值下发 → 写 Episode
+# M0：进程内 sim
 cargo run -p archon-embodied-cli -- --task-id demo_waypoints --step-ms 0
 
-# M1：合成相机 + ColorBlobPolicy（视觉门控）
+# M1：合成相机 + ColorBlobPolicy
 cargo run -p archon-embodied-cli -- \
   --task-id pick_red_blob_sim --policy color_blob --camera synthetic --step-ms 0
+
+# 带窗口看动作（结束后窗口会停住，关掉窗口才退出）
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:desktop_arm \
+  --policy instruction --instruction "挥手" \
+  --viewer --step-ms 0
+
+# 平面小车 + 导出 MP4（小红书等；需 ffmpeg）
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:diff_car \
+  --policy instruction --instruction "向前走一点再左转180度" \
+  --record-video ./tmp-episodes/car-demo.mp4 --step-ms 0
 
 # 中途抢占
 cargo run -p archon-embodied-cli -- --step-ms 5 --auto-stop-ms 200
@@ -76,7 +88,8 @@ archon/
     ├── archon-policy/         # MockPolicy、ColorBlobPolicy、LimitSafetyGate、VLA/WAM stub
     ├── archon-perception/     # CameraSource、合成相机、色块检测、Observation enrich
     ├── archon-ros2/           # 话题/消息契约（sim↔real）
-    ├── archon-sim/            # 进程内仿真 Backend
+    ├── archon-sim/            # 进程内仿真 Backend（CI 默认）
+    ├── archon-sim-bridge/     # NDJSON 桥：MuJoCo / ManiSkill / …
     ├── archon-embodied-cli/   # 二进制 archon-embodied
     │
     # —— Digital（源码保留，默认未加入 workspace）——
@@ -110,7 +123,8 @@ archon/
 - `archon-perception`：合成 RGB、色块检测、`images.primary` MediaRef
 - `SimBackend`（与 `/archon/arm/*` 话题契约对齐）
 - Executive：感知 enrich、资源锁、事件抢占、Episode + media bundle
-- CLI：`archon-embodied`（`--policy` / `--camera`）
+- CLI：`archon-embodied`（`--policy` / `--camera` / `--backend sim|mujoco`）
+- M2a：`archon-sim-bridge` + Python MuJoCo worker（平台无关 NDJSON）
 
 ### Digital（源码能力；启用 workspace 后可用）
 
@@ -128,9 +142,13 @@ archon/
 |--------|------|
 | **M0** | ✅ MockPolicy + SimBackend + Executive + Episode |
 | **M1** | ✅ 感知桥接；`images.primary` + ColorBlobPolicy 视觉门控 |
-| **M2** | 真机 SO101 / Microduck 等作为第二 `RobotBackend` |
-| **M3** | `VlaAdapter`（API 或 PyO3）+ 低频 action chunk |
-| **M4** | 开发平面 subagent（草案/仿真评测/复盘，无实机控制权） |
+| **M2a** | ✅ 平台无关仿真桥 + MuJoCo（资产 / viewer / 语言原语） |
+| **M2b** | ⏳ ManiSkill worker |
+| **M2c** | ✅ DeepSeek 等 LLM 编译自然语言 → 原语；平面小车 `diff_car` |
+| **M3** | Isaac Sim（次优先） |
+| **M4** | Gazebo 等其它平台 |
+| **M5** | 真机 SO101 / Microduck 等 `RobotBackend` |
+| **M6** | `VlaAdapter` + 低频 action chunk |
 
 数字平面原有路线图（MCP、RAG、富 UI 等）仍参考 `plan/`；与具身主线并行，不互相替代。
 

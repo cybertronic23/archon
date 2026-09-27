@@ -71,6 +71,7 @@ dependencies = [
  "archon-policy",
  "archon-runtime",
  "archon-sim",
+ "archon-sim-bridge",
  "clap",
  "serde_json",
  "tokio",
@@ -151,6 +152,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "archon-sim-bridge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "archon-embodied",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 dependencies = [
@@ -167,6 +180,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "bitflags"
 version = "2.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "bytes"
+version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -395,6 +413,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -438,12 +464,15 @@ version = "1.47.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "backtrace",
+ "bytes",
  "io-uring",
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "slab",
  "tokio-macros",
+ "windows-sys",
 ]
 
 [[package]]

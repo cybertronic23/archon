@@ -49,5 +49,11 @@ Cargo.lock.full.bak
 /third_party/
 /.cargo/
 
-# Local episode dumps from CLI runs
+# Local Python envs for sim workers
+.venv/
+.venv-*/
+venv/
+
+# Local episode / demo video dumps
 /tmp-episodes/
+.archon_frames_*/

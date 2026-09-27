@@ -59,6 +59,76 @@ cargo run -p archon-embodied-cli -- \
 | `--step-ms` | 下发间隔；CI / 快速跑可用 `0` |
 | `--episode-dir` | Episode / media bundle 输出目录 |
 
+## 外接仿真（M2a MuJoCo 最小完备集）
+
+拿到仓库后，可在 MuJoCo 里：**选资产 → 语言指令 → 驱动本体 → 写 Episode**。
+
+```bash
+# 1) Python 依赖（建议 venv）
+python3 -m venv .venv-mujoco
+.venv-mujoco/bin/pip install -r python/requirements-mujoco.txt
+
+# 2) 查看内置资产
+cargo run -p archon-embodied-cli -- --list-models
+
+# 3) 内置臂 + 语言指令「挥手」（加 --viewer 可弹 MuJoCo 窗口）
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco \
+  --model builtin:desktop_arm \
+  --policy instruction \
+  --instruction "挥手" \
+  --viewer \
+  --step-ms 20
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--backend mujoco` | NDJSON 桥接 MuJoCo worker |
+| `--model builtin:desktop_arm` | 内置资产；也可本地 `.xml`/目录，或 `https://…xml\|zip`（缓存到 `~/.archon/assets/cache`） |
+| `--policy instruction` | 短语→运动原语（挥手/回零/伸出/点头/开合夹爪…） |
+| `--instruction` | 中英文指令文本 |
+| `--viewer` | 弹出 MuJoCo 交互窗口（macOS 会自动用 `mjpython`；建议 `--step-ms 20`） |
+| `--worker PATH` | 覆盖默认 worker 脚本 |
+| `ARCHON_PYTHON` | 指定 Python 解释器（可选） |
+
+语言策略为**确定性原语路由**（不是完整 VLA）；自由文本需命中已知短语。远程资产需为 **MJCF（.xml）或含 MJCF 的 zip**（公开 Menagerie 等请下载后 `--model` 指向 `scene.xml`）。
+
+设计：`notes/design/m2a-mujoco-complete.md`。
+
+## LLM 自然语言（M2c，DeepSeek 等）
+
+规则策略之外，可用云端 LLM 把自然语言编译成运动原语（仍经 Safety，不直连电机）：
+
+```bash
+export DEEPSEEK_API_KEY=sk-...
+
+# A：桌面臂
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:desktop_arm \
+  --policy llm --instruction "向右边挥一下手" --viewer --step-ms 0
+
+# B：平面小车
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:diff_car \
+  --policy llm --instruction "向前走一点再左转" --viewer --step-ms 0
+
+# 录一段可发小红书的 MP4（需 ffmpeg；可不开 viewer）
+brew install ffmpeg   # 若尚未安装
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:diff_car \
+  --policy instruction --instruction "向前走一点再左转180度" \
+  --record-video ./tmp-episodes/car-demo.mp4 --step-ms 0
+# 结束后看 stderr 里的 video saved 路径；也可用 --record-video 不带路径（写入 episode 目录 demo.mp4）
+```
+
+无 Key 时可用规则策略：`--policy instruction`（短语表，不调用云端）。录屏也可用 macOS「Cmd+Shift+5」对准 viewer 窗口。
+
+| 变量 / 参数 | 说明 |
+|-------------|------|
+| `DEEPSEEK_API_KEY` / `--llm-api-key` | API Key |
+| `LLM_BASE_URL` / `--llm-base-url` | 默认 `https://api.deepseek.com` |
+| `LLM_MODEL` / `--llm-model` | 默认 `deepseek-chat` |
+
 ## ROS2 话题契约（sim 与 real 共用）
 
 默认命名空间：`/archon/arm`
@@ -76,4 +146,4 @@ cargo run -p archon-embodied-cli -- \
 
 ## 相关 crates
 
-`archon-embodied` · `archon-runtime` · `archon-kinetic` · `archon-policy` · `archon-perception` · `archon-ros2` · `archon-sim` · `archon-embodied-cli`
+`archon-embodied` · `archon-runtime` · `archon-kinetic` · `archon-policy` · `archon-perception` · `archon-sim` · `archon-sim-bridge` · `archon-ros2` · `archon-embodied-cli`

@@ -15,6 +15,7 @@ archon-kinetic = { path = "../archon-kinetic" }
 archon-policy = { path = "../archon-policy" }
 archon-perception = { path = "../archon-perception" }
 archon-sim = { path = "../archon-sim" }
+archon-sim-bridge = { path = "../archon-sim-bridge" }
 anyhow = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
