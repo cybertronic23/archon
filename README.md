@@ -58,7 +58,8 @@ cargo run -p archon-embodied-cli -- \
 cargo run -p archon-embodied-cli -- --step-ms 5 --auto-stop-ms 200
 ```
 
-更多参数与 ROS2 话题约定见 [docs/embodied-getting-started.md](docs/embodied-getting-started.md)。
+更多参数与 ROS2 话题约定见 [docs/embodied-getting-started.md](docs/embodied-getting-started.md)。  
+带贴图的小车逐步示例：[examples/diff-car-mujoco/](examples/diff-car-mujoco/)。
 
 ### 数字平面 CLI（当前默认 workspace 未包含）
 
@@ -77,6 +78,7 @@ cargo run -p archon-cli -- --api-key $ANTHROPIC_API_KEY
 archon/
 ├── Cargo.toml                 # Workspace（默认仅具身 members）
 ├── docs/                      # 面向用户的稳定文档
+├── examples/                  # 带贴图的可运行示例
 ├── notes/                     # 开发者设计/评估/讨论（本地，gitignore）
 ├── ARCHITECTURE.md            # 数字 Harness 架构说明（偏 Digital）
 │

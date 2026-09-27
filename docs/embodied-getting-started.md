@@ -112,7 +112,7 @@ cargo run -p archon-embodied-cli -- \
   --backend mujoco --model builtin:diff_car \
   --policy llm --instruction "向前走一点再左转" --viewer --step-ms 0
 
-# 录一段可发小红书的 MP4（需 ffmpeg；可不开 viewer）
+# 录一段演示 MP4（需 ffmpeg；可不开 viewer）
 brew install ffmpeg   # 若尚未安装
 cargo run -p archon-embodied-cli -- \
   --backend mujoco --model builtin:diff_car \
@@ -120,6 +120,8 @@ cargo run -p archon-embodied-cli -- \
   --record-video ./tmp-episodes/car-demo.mp4 --step-ms 0
 # 结束后看 stderr 里的 video saved 路径；也可用 --record-video 不带路径（写入 episode 目录 demo.mp4）
 ```
+
+带 **Viewer 截图 / 前后帧对比 / 参考成片** 的逐步说明见示例文档：[`examples/diff-car-mujoco/`](../examples/diff-car-mujoco/)。
 
 无 Key 时可用规则策略：`--policy instruction`（短语表，不调用云端）。录屏也可用 macOS「Cmd+Shift+5」对准 viewer 窗口。
 

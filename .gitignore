@@ -57,3 +57,6 @@ venv/
 # Local episode / demo video dumps
 /tmp-episodes/
 .archon_frames_*/
+*.mp4
+*.webm
+*.mov

@@ -7,3 +7,4 @@
 | 文档 | 说明 |
 |------|------|
 | [embodied-getting-started.md](./embodied-getting-started.md) | 具身平面：仿真 MVP 运行与 sim→real 契约概要 |
+| [../examples/](../examples/) | 带贴图的可运行示例（如 [MuJoCo 平面小车](../examples/diff-car-mujoco/)） |
