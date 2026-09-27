@@ -48,3 +48,6 @@ Cargo.lock.full.bak
 /.cargo-home/
 /third_party/
 /.cargo/
+
+# Local episode dumps from CLI runs
+/tmp-episodes/
