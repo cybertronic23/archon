@@ -46,6 +46,7 @@ Cargo.lock.full.bak
 # Local cargo vendor / home used for offline builds
 /vendor/
 /.cargo-home/
+/.cargo-home-tmp/
 /third_party/
 /.cargo/
 
@@ -60,3 +61,5 @@ venv/
 *.mp4
 *.webm
 *.mov
+*.ppm
+*.PPM

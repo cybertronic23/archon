@@ -208,24 +208,28 @@ impl MotionPrimitive {
     }
 }
 
-/// Parse magnitude: "180度" / "90 degrees" / "半圈" / "一圈"; default 1.0 (= 90° for turns).
+/// Parse magnitude: "180度" / "半圈" / "一圈" / "三个圈"; default 1.0 (= 90° for turns).
 fn scale_from_segment(segment: &str, prim: MotionPrimitive) -> f64 {
     let t = segment.to_lowercase();
     if matches!(
         prim,
         MotionPrimitive::TurnLeft | MotionPrimitive::TurnRight
     ) {
-        if t.contains("半圈") || t.contains("half") {
+        if t.contains("半圈") || t.contains("half turn") || t.contains("half circle") {
             return 2.0; // 180°
         }
-        if t.contains("一圈") || t.contains("整圈") || t.contains("full circle") {
+        // N 圈 / N circles → N × 360° (scale units are 90°)
+        if let Some(n) = parse_circle_count(&t) {
+            return (n * 4.0).clamp(0.2, 24.0);
+        }
+        if t.contains("整圈") || t.contains("full circle") {
             return 4.0; // 360°
         }
         if let Some(deg) = parse_number_before_unit(&t, &["度", "degrees", "degree", "°"]) {
-            return (deg / 90.0).clamp(0.2, 4.0);
+            return (deg / 90.0).clamp(0.2, 24.0);
         }
         if let Some(rad) = parse_number_before_unit(&t, &["rad", "弧度"]) {
-            return (rad / std::f64::consts::FRAC_PI_2).clamp(0.2, 4.0);
+            return (rad / std::f64::consts::FRAC_PI_2).clamp(0.2, 24.0);
         }
     }
     if matches!(
@@ -284,12 +288,56 @@ fn rules_for(robot: RobotKind) -> &'static [(&'static [&'static str], MotionPrim
             (&["home", "reset", "回原点", "复位", "回零"], MotionPrimitive::Home),
             (&["backward", "后退", "倒车"], MotionPrimitive::Backward),
             (&["forward", "前进", "向前", "往前"], MotionPrimitive::Forward),
+            // 原地转 / 转圈：默认逆时针（TurnLeft）；需放在 demo 的「转一圈」之前匹配更具体的说法
+            (
+                &[
+                    "原地转",
+                    "原地旋转",
+                    "转圈",
+                    "打转",
+                    "spin",
+                    "rotate in place",
+                    "turn around",
+                ],
+                MotionPrimitive::TurnLeft,
+            ),
             (&["turn left", "左转", "向左转"], MotionPrimitive::TurnLeft),
             (&["turn right", "右转", "向右转"], MotionPrimitive::TurnRight),
             (&["stop", "停下", "停车", "停止"], MotionPrimitive::Stop),
-            (&["demo", "演示", "转一圈", "动一下"], MotionPrimitive::Demo),
+            (&["demo", "演示", "动一下"], MotionPrimitive::Demo),
         ],
     }
+}
+
+/// "三个圈" / "3圈" / "一圈" / "2 circles" → circle count.
+fn parse_circle_count(text: &str) -> Option<f64> {
+    if let Some(n) = parse_number_before_unit(text, &["circles", "circle", "圈"]) {
+        return Some(n.clamp(0.25, 6.0));
+    }
+    // Chinese: 三个圈 / 两圈 / 一圈（「个」可有可无）
+    const CN: &[(&str, f64)] = &[
+        ("半圈", 0.5),
+        ("一圈", 1.0),
+        ("二圈", 2.0),
+        ("两圈", 2.0),
+        ("三圈", 3.0),
+        ("四圈", 4.0),
+        ("五圈", 5.0),
+        ("六圈", 6.0),
+        ("一个圈", 1.0),
+        ("二个圈", 2.0),
+        ("两个圈", 2.0),
+        ("三个圈", 3.0),
+        ("四个圈", 4.0),
+        ("五个圈", 5.0),
+        ("六个圈", 6.0),
+    ];
+    for (k, n) in CN {
+        if text.contains(k) {
+            return Some(*n);
+        }
+    }
+    None
 }
 
 fn split_instruction_parts(text: &str) -> Vec<&str> {
@@ -632,7 +680,6 @@ fn build_arm_waypoints(
 
 /// Planar base joints expected as [root_x, root_y, root_yaw].
 fn build_car_waypoints(prim: MotionPrimitive, start: &[f64], scale: f64) -> Vec<JointWaypoint> {
-    let s = scale.clamp(0.2, 3.0);
     let x0 = start.first().copied().unwrap_or(0.0);
     let y0 = start.get(1).copied().unwrap_or(0.0);
     let yaw0 = start.get(2).copied().unwrap_or(0.0);
@@ -644,9 +691,13 @@ fn build_car_waypoints(prim: MotionPrimitive, start: &[f64], scale: f64) -> Vec<
         v.truncate(start.len().max(3));
         v
     };
-    let dist = 0.35 * s;
-    // scale 1.0 = 90°, so "左转180度" → scale 2 → π rad
-    let turn = std::f64::consts::FRAC_PI_2 * s;
+    // Turns allow larger scale (multi-revolution); translate stays modest.
+    let s_move = scale.clamp(0.2, 6.0);
+    let s_turn = scale.clamp(0.2, 24.0);
+    let dist = 0.35 * s_move;
+    // scale 1.0 = 90°, so "三个圈" → scale 12 → 6π rad
+    let turn = std::f64::consts::FRAC_PI_2 * s_turn;
+    let turn_t = (1.0 + 0.35 * s_turn).clamp(1.0, 45.0);
 
     match prim {
         MotionPrimitive::Home => vec![
@@ -692,7 +743,7 @@ fn build_car_waypoints(prim: MotionPrimitive, start: &[f64], scale: f64) -> Vec<
                 gripper_open: None,
             },
             JointWaypoint {
-                t_sec: 1.2,
+                t_sec: turn_t,
                 positions: pad(x0, y0, yaw0 + turn),
                 gripper_open: None,
             },
@@ -704,7 +755,7 @@ fn build_car_waypoints(prim: MotionPrimitive, start: &[f64], scale: f64) -> Vec<
                 gripper_open: None,
             },
             JointWaypoint {
-                t_sec: 1.2,
+                t_sec: turn_t,
                 positions: pad(x0, y0, yaw0 - turn),
                 gripper_open: None,
             },
@@ -732,7 +783,7 @@ fn build_car_waypoints(prim: MotionPrimitive, start: &[f64], scale: f64) -> Vec<
             },
             JointWaypoint {
                 t_sec: 3.0,
-                positions: pad(x0 + 2.0 * dist, y0 + 0.2 * s, yaw0 + turn),
+                positions: pad(x0 + 2.0 * dist, y0 + 0.2 * s_move, yaw0 + turn),
                 gripper_open: None,
             },
         ],
@@ -781,6 +832,26 @@ mod tests {
     #[test]
     fn parses_home() {
         assert_eq!(MotionPrimitive::parse("home").unwrap(), MotionPrimitive::Home);
+    }
+
+    #[test]
+    fn parses_spin_three_circles_in_place() {
+        let steps =
+            MotionPrimitive::parse_sequence_for("原地转三个圈", RobotKind::DiffCar).unwrap();
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].0, MotionPrimitive::TurnLeft);
+        assert!(
+            (steps[0].1 - 12.0).abs() < 1e-6,
+            "expected scale 12 (3×360°), got {}",
+            steps[0].1
+        );
+        let wps = build_waypoint_sequence(RobotKind::DiffCar, &steps, &[0.0, 0.0, 0.0], 0.0);
+        let yaw = wps.last().unwrap().positions[2];
+        let expect = 3.0 * std::f64::consts::TAU;
+        assert!(
+            (yaw - expect).abs() < 0.05,
+            "expected ~{expect} yaw, got {yaw}"
+        );
     }
 
     #[tokio::test]

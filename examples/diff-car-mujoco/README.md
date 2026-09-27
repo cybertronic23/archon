@@ -104,7 +104,19 @@ cargo run -p archon-embodied-cli -- \
 也可只写 `--record-video`（不带路径），默认写到 episode 目录下的 `demo.mp4`。  
 生成的 `.mp4` 默认被 gitignore，请勿提交。
 
-### C. DeepSeek 等 LLM 策略（可选）
+### C. 多轮 TUI（推荐日常调试）
+
+```bash
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco \
+  --model builtin:diff_car \
+  --policy instruction \
+  --viewer --tui --step-ms 0
+```
+
+终端进入 Chat：连续输入指令（如「向前走一点」→「左转90度」），仿真会话不重启。`/quit` 退出。
+
+### D. DeepSeek 等 LLM 策略（可选）
 
 口语不一定要落在短语表里时：
 

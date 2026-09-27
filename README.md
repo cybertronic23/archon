@@ -48,11 +48,16 @@ cargo run -p archon-embodied-cli -- \
   --policy instruction --instruction "挥手" \
   --viewer --step-ms 0
 
-# 平面小车 + 导出 MP4（小红书等；需 ffmpeg）
+# 平面小车 + 导出 MP4（需 ffmpeg）
 cargo run -p archon-embodied-cli -- \
   --backend mujoco --model builtin:diff_car \
   --policy instruction --instruction "向前走一点再左转180度" \
   --record-video ./tmp-episodes/car-demo.mp4 --step-ms 0
+
+# 多轮 TUI（会话常驻，边聊边指挥）
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:diff_car \
+  --policy instruction --viewer --tui --step-ms 0
 
 # 中途抢占
 cargo run -p archon-embodied-cli -- --step-ms 5 --auto-stop-ms 200
@@ -145,8 +150,9 @@ archon/
 | **M0** | ✅ MockPolicy + SimBackend + Executive + Episode |
 | **M1** | ✅ 感知桥接；`images.primary` + ColorBlobPolicy 视觉门控 |
 | **M2a** | ✅ 平台无关仿真桥 + MuJoCo（资产 / viewer / 语言原语） |
-| **M2b** | ⏳ ManiSkill worker |
+| **M2b** | ⏳ ManiSkill worker（可置于 M2d 之后） |
 | **M2c** | ✅ DeepSeek 等 LLM 编译自然语言 → 原语；平面小车 `diff_car` |
+| **M2d** | 🚧 会话常驻 + ratatui TUI 多轮语言指挥（`--tui`；网页 Chat → 以后 M2e） |
 | **M3** | Isaac Sim（次优先） |
 | **M4** | Gazebo 等其它平台 |
 | **M5** | 真机 SO101 / Microduck 等 `RobotBackend` |

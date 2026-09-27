@@ -130,11 +130,11 @@ impl JointLimits {
         }
     }
 
-    /// Planar mobile base: x,y in meters, yaw in rad (allow full ±2π turns).
+    /// Planar mobile base: x,y in meters, yaw in rad (multi-revolution spins).
     pub fn planar_base_3dof() -> Self {
         Self {
-            lower: vec![-5.0, -5.0, -6.4],
-            upper: vec![5.0, 5.0, 6.4],
+            lower: vec![-5.0, -5.0, -40.0],
+            upper: vec![5.0, 5.0, 40.0],
         }
     }
 

@@ -21,6 +21,8 @@ pub struct ExecutiveConfig {
     pub max_proposal_timeout_ms: u64,
     /// Optional fixed episode id (so CLI can pre-create media dirs).
     pub episode_id: Option<String>,
+    /// When true, do not call `backend.shutdown()` after a turn (multi-turn TUI / REPL).
+    pub keep_backend_alive: bool,
 }
 
 impl Default for ExecutiveConfig {
@@ -30,6 +32,7 @@ impl Default for ExecutiveConfig {
             control_step_ms: 20, // 50 Hz
             max_proposal_timeout_ms: 30_000,
             episode_id: None,
+            keep_backend_alive: false,
         }
     }
 }
@@ -232,7 +235,9 @@ impl Executive {
                 episode.push("estop_or_cancel", serde_json::json!({ "cancelled": true }));
             }
 
-            let _ = b.shutdown().await;
+            if !self.config.keep_backend_alive {
+                let _ = b.shutdown().await;
+            }
             stream_result
         };
 

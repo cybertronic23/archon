@@ -1,4 +1,7 @@
-//! Archon Embodied CLI — sim / MuJoCo assets / language instructions.
+//! Archon Embodied CLI — sim / MuJoCo assets / language instructions / TUI.
+
+mod session;
+mod tui_app;
 
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
@@ -8,10 +11,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use archon_kinetic::Chronos;
 use archon_perception::{ColorBlobDetector, PerceptionBridge, SyntheticColorCamera};
-use archon_policy::{
-    ColorBlobPolicy, InstructionPolicy, LimitSafetyGate, LlmPolicy, LlmPolicyConfig, MockPolicy,
-    RobotKind,
-};
+use archon_policy::{ColorBlobPolicy, RobotKind};
 use archon_runtime::{Executive, ExecutiveConfig, RuntimeEvent};
 use archon_sim::SimBackend;
 use archon_sim_bridge::{
@@ -20,6 +20,8 @@ use archon_sim_bridge::{
 };
 use clap::Parser;
 use tokio::sync::Mutex;
+
+use session::{SessionConfig, TurnOutcome};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -51,7 +53,7 @@ struct Args {
     #[arg(long, default_value = "mock")]
     policy: String,
 
-    /// Natural-language instruction (for `instruction` / `llm`)
+    /// Natural-language instruction (for `instruction` / `llm`); with `--tui` becomes first turn
     #[arg(long)]
     instruction: Option<String>,
 
@@ -78,6 +80,10 @@ struct Args {
     /// Open MuJoCo interactive viewer window (needs local GUI / display)
     #[arg(long, default_value_t = false)]
     viewer: bool,
+
+    /// Interactive ratatui chat (multi-turn; keeps sim session alive)
+    #[arg(long, default_value_t = false)]
+    tui: bool,
 
     /// Record offscreen MP4 for sharing (needs ffmpeg). Optional PATH; default `<episode>/demo.mp4`.
     #[arg(long, num_args = 0..=1, value_name = "PATH")]
@@ -117,17 +123,26 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if args.tui && matches!(args.policy.as_str(), "color_blob") {
+        anyhow::bail!("--tui does not support --policy color_blob yet; use instruction or llm");
+    }
+
     let robot = RobotKind::parse_model_hint(&args.model);
-    let instruction = args.instruction.clone().or_else(|| {
-        if args.policy == "instruction" || args.policy == "llm" {
-            Some(match robot {
-                RobotKind::DiffCar => "向前走一点".into(),
-                RobotKind::Arm => "挥手".into(),
-            })
-        } else {
-            None
-        }
-    });
+    // One-shot defaults a phrase; TUI starts empty unless --instruction is given.
+    let instruction = if args.tui {
+        args.instruction.clone()
+    } else {
+        args.instruction.clone().or_else(|| {
+            if args.policy == "instruction" || args.policy == "llm" {
+                Some(match robot {
+                    RobotKind::DiffCar => "向前走一点".into(),
+                    RobotKind::Arm => "挥手".into(),
+                })
+            } else {
+                None
+            }
+        })
+    };
 
     let camera = if args.policy == "color_blob" && args.camera == "none" && args.backend == "sim" {
         "synthetic".to_string()
@@ -135,7 +150,7 @@ async fn main() -> Result<()> {
         args.camera.clone()
     };
 
-    let episode_root = args.episode_dir.unwrap_or_else(|| {
+    let episode_root = args.episode_dir.clone().unwrap_or_else(|| {
         let home = std::env::var_os("HOME")
             .or_else(|| std::env::var_os("USERPROFILE"))
             .map(PathBuf::from)
@@ -184,12 +199,17 @@ async fn main() -> Result<()> {
             }
             if args.viewer {
                 cfg = cfg.with_viewer(true);
-                eprintln!("[archon-embodied] MuJoCo viewer enabled (close the window or wait for run to finish)");
+                eprintln!(
+                    "[archon-embodied] MuJoCo viewer enabled (close the window on quit to finish)"
+                );
             }
             if let Some(path_opt) = &args.record_video {
-                let out = path_opt.clone().unwrap_or_else(|| {
-                    bundle_dir.join("demo.mp4")
-                });
+                if args.tui {
+                    eprintln!("[archon-embodied] warning: --record-video with --tui records only the session open; prefer one-shot for demos");
+                }
+                let out = path_opt
+                    .clone()
+                    .unwrap_or_else(|| bundle_dir.join("demo.mp4"));
                 eprintln!(
                     "[archon-embodied] recording video → {} (ffmpeg required)",
                     out.display()
@@ -223,21 +243,16 @@ async fn main() -> Result<()> {
             );
             Arc::new(Mutex::new(BridgedSimBackend::new(cfg)))
         }
-        other => anyhow::bail!(
-            "unknown backend '{other}'; use sim | mujoco | maniskill"
-        ),
+        other => anyhow::bail!("unknown backend '{other}'; use sim | mujoco | maniskill"),
     };
 
     // Connect early for mujoco so Chronos gets discovered joint names.
     if args.backend == "mujoco" || args.backend == "maniskill" {
-        {
-            let mut b = backend.lock().await;
-            b.connect().await.context("backend connect")?;
-            let obs = b.read_observation().await.context("read observation")?;
-            if !obs.joints().names.is_empty() {
-                joint_names = obs.joints().names.clone();
-            }
-            // Leave connected; Executive.run_once will connect again (idempotent enough).
+        let mut b = backend.lock().await;
+        b.connect().await.context("backend connect")?;
+        let obs = b.read_observation().await.context("read observation")?;
+        if !obs.joints().names.is_empty() {
+            joint_names = obs.joints().names.clone();
         }
     }
 
@@ -247,12 +262,13 @@ async fn main() -> Result<()> {
             task_id: args.task_id.clone(),
             control_step_ms: args.step_ms,
             episode_id: Some(episode_id.clone()),
+            keep_backend_alive: args.tui,
             ..Default::default()
         },
         chronos,
     );
 
-    if args.stdin_stop {
+    if args.stdin_stop && !args.tui {
         let events = executive.events.clone();
         std::thread::spawn(move || {
             let stdin = io::stdin();
@@ -285,7 +301,7 @@ async fn main() -> Result<()> {
         });
     }
 
-    if args.auto_stop_ms > 0 {
+    if args.auto_stop_ms > 0 && !args.tui {
         let events = executive.events.clone();
         let ms = args.auto_stop_ms;
         tokio::spawn(async move {
@@ -296,7 +312,7 @@ async fn main() -> Result<()> {
         });
     }
 
-    let mut perception = match camera.as_str() {
+    let perception = match camera.as_str() {
         "none" => None,
         "synthetic" | "synthetic_blob" => {
             let mut bridge = PerceptionBridge::new(
@@ -321,145 +337,97 @@ async fn main() -> Result<()> {
         other => anyhow::bail!("unknown camera '{other}'"),
     };
 
-    let safety = match robot {
-        RobotKind::DiffCar => LimitSafetyGate::for_planar_base(),
-        RobotKind::Arm => LimitSafetyGate::default(),
+    let session_cfg = SessionConfig {
+        task_id: args.task_id.clone(),
+        backend_name: args.backend.clone(),
+        policy_name: args.policy.clone(),
+        camera: camera.clone(),
+        model: args.model.clone(),
+        robot,
+        joint_names: joint_names.clone(),
+        episode_root: episode_root.clone(),
+        save_frames: args.save_frames,
+        llm_api_key: args.llm_api_key.clone(),
+        llm_base_url: args.llm_base_url.clone(),
+        llm_model: args.llm_model.clone(),
     };
-    let task_context = serde_json::json!({
-        "task_id": args.task_id,
-        "backend": args.backend,
-        "policy": args.policy,
-        "camera": camera,
-        "model": args.model,
-        "instruction": instruction,
-        "robot": robot.as_str(),
-    });
+
+    if args.tui {
+        eprintln!("[archon-embodied] entering TUI (MuJoCo viewer stays open across turns)");
+        return tui_app::run_tui(executive, backend, perception, session_cfg, instruction).await;
+    }
 
     println!(
         "Running embodied loop: task={} backend={} policy={} model={} robot={} instruction={:?}",
         args.task_id, args.backend, args.policy, args.model, robot.as_str(), instruction
     );
 
-    let (result, episode) = match args.policy.as_str() {
-        "mock" => {
-            let policy = MockPolicy::new();
-            run_with_optional_perception(
-                &mut executive,
-                &policy,
-                &safety,
-                backend,
-                perception.as_mut(),
-                task_context,
-            )
-            .await
-        }
+    let safety = session::default_safety(robot);
+    let mut perception = perception;
+
+    let outcome: TurnOutcome = match args.policy.as_str() {
         "color_blob" => {
             let policy = ColorBlobPolicy::new();
             let bridge = perception
                 .as_mut()
                 .context("color_blob requires --camera synthetic|synthetic_blank")?;
-            executive
+            let task_context = serde_json::json!({
+                "task_id": args.task_id,
+                "backend": args.backend,
+                "policy": args.policy,
+                "camera": camera,
+                "model": args.model,
+                "instruction": instruction,
+                "robot": robot.as_str(),
+            });
+            let (result, episode) = executive
                 .run_once_with_perception(&policy, &safety, backend, Some(bridge), task_context)
                 .await
-        }
-        "instruction" => {
-            let text = instruction.context("--policy instruction needs --instruction")?;
-            let policy = InstructionPolicy::new(text)
-                .with_joint_names(joint_names)
-                .with_robot(robot);
-            run_with_optional_perception(
-                &mut executive,
-                &policy,
-                &safety,
-                backend,
-                perception.as_mut(),
-                task_context,
-            )
-            .await
-        }
-        "llm" => {
-            let text = instruction.context("--policy llm needs --instruction")?;
-            let api_key = args
-                .llm_api_key
-                .clone()
-                .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-                .context(
-                    "LLM policy needs DEEPSEEK_API_KEY or OPENAI_API_KEY (or --llm-api-key)",
-                )?;
-            let base_url = args
-                .llm_base_url
-                .clone()
-                .unwrap_or_else(|| "https://api.deepseek.com".into());
-            let cfg = LlmPolicyConfig {
-                api_key,
-                base_url,
-                model: args.llm_model.clone(),
-                robot,
-                fallback_rules: true,
+                .context("executive run_once")?;
+            let path = if args.save_frames {
+                episode.save_bundle(&bundle_dir)?;
+                bundle_dir.join("episode.json")
+            } else {
+                let path = episode_root.join(format!("{}.json", episode.id));
+                episode.save_to_file(&path)?;
+                path
             };
-            eprintln!(
-                "[archon-embodied] LLM compiler model={} base={}",
-                cfg.model, cfg.base_url
-            );
-            let policy = LlmPolicy::new(cfg, text);
-            run_with_optional_perception(
+            TurnOutcome {
+                result,
+                episode,
+                episode_path: path,
+            }
+        }
+        "mock" | "instruction" | "llm" => {
+            let text = if args.policy == "mock" {
+                instruction.unwrap_or_default()
+            } else {
+                instruction.context(format!("--policy {} needs --instruction", args.policy))?
+            };
+            session::run_turn(
                 &mut executive,
-                &policy,
-                &safety,
                 backend,
-                perception.as_mut(),
-                task_context,
+                &safety,
+                &mut perception,
+                &session_cfg,
+                &text,
             )
             .await
+            .context("executive run_once")?
         }
         other => {
             anyhow::bail!("unknown policy '{other}'; use mock | color_blob | instruction | llm")
         }
-    }
-    .context("executive run_once")?;
+    };
 
-    let bridged = matches!(args.backend.as_str(), "mujoco" | "maniskill");
-    if (perception.is_some() || bridged) && args.save_frames {
-        episode
-            .save_bundle(&bundle_dir)
-            .with_context(|| format!("save episode bundle to {}", bundle_dir.display()))?;
-        println!(
-            "status={:?} commands_sent={} duration_ms={} episode={}",
-            result.status,
-            result.commands_sent,
-            result.duration_ms,
-            bundle_dir.join("episode.json").display()
-        );
-    } else {
-        let path = episode_root.join(format!("{}.json", episode.id));
-        episode
-            .save_to_file(&path)
-            .with_context(|| format!("save episode to {}", path.display()))?;
-        println!(
-            "status={:?} commands_sent={} duration_ms={} episode={}",
-            result.status, result.commands_sent, result.duration_ms, path.display()
-        );
-    }
-    println!("message={}", result.message);
+    println!(
+        "status={:?} commands_sent={} duration_ms={} episode={}",
+        outcome.result.status,
+        outcome.result.commands_sent,
+        outcome.result.duration_ms,
+        outcome.episode_path.display()
+    );
+    println!("message={}", outcome.result.message);
 
     Ok(())
-}
-
-async fn run_with_optional_perception(
-    executive: &mut Executive,
-    policy: &dyn archon_embodied::Policy,
-    safety: &dyn archon_embodied::SafetyGate,
-    backend: Arc<Mutex<dyn archon_embodied::RobotBackend>>,
-    perception: Option<&mut PerceptionBridge>,
-    task_context: serde_json::Value,
-) -> Result<(archon_embodied::ExecutionResult, archon_embodied::Episode)> {
-    if let Some(bridge) = perception {
-        executive
-            .run_once_with_perception(policy, safety, backend, Some(bridge), task_context)
-            .await
-    } else {
-        executive
-            .run_once(policy, safety, backend, task_context)
-            .await
-    }
 }

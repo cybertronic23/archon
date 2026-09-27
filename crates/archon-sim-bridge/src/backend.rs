@@ -128,12 +128,10 @@ fn resolve_python() -> String {
         .ok()
         .filter(|p| Path::new(p).exists())
         .or_else(|| {
-            let venv = PathBuf::from(".venv-mujoco/bin/python3");
-            if venv.exists() {
-                Some(venv.to_string_lossy().into_owned())
-            } else {
-                None
-            }
+            // Prefer repo .venv-mujoco even when cwd is a subdirectory (e.g. tmp-episodes/).
+            venv_mujoco_bin("python3")
+                .or_else(|| venv_mujoco_bin("python"))
+                .map(|p| p.to_string_lossy().into_owned())
         })
         .or_else(|| {
             ["python3", "python"]
@@ -142,6 +140,32 @@ fn resolve_python() -> String {
                 .map(|s| s.to_string())
         })
         .unwrap_or_else(|| "python3".into())
+}
+
+/// Locate `.venv-mujoco/bin/<name>` from cwd, parents, or crate workspace root.
+fn venv_mujoco_bin(name: &str) -> Option<PathBuf> {
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut d = cwd;
+        for _ in 0..6 {
+            roots.push(d.clone());
+            if !d.pop() {
+                break;
+            }
+        }
+    }
+    // crates/archon-sim-bridge → repo root
+    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."));
+
+    for root in roots {
+        let p = root.join(".venv-mujoco/bin").join(name);
+        // Do NOT canonicalize: following the venv symlink lands on the system
+        // interpreter and drops site-packages (mujoco disappears).
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
 }
 
 /// Rewrite worker_cmd to use mjpython (same venv / PATH) when available.
@@ -155,7 +179,7 @@ fn mjpython_worker_cmd(worker_cmd: &[String]) -> Option<Vec<String>> {
     let candidates = [
         std::env::var_os("ARCHON_MJPYTHON").map(PathBuf::from),
         current_py.parent().map(|d| d.join("mjpython")),
-        Some(PathBuf::from(".venv-mujoco/bin/mjpython")),
+        venv_mujoco_bin("mjpython"),
         which_path("mjpython"),
     ];
 

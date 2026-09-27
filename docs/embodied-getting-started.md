@@ -121,9 +121,28 @@ cargo run -p archon-embodied-cli -- \
 # 结束后看 stderr 里的 video saved 路径；也可用 --record-video 不带路径（写入 episode 目录 demo.mp4）
 ```
 
-带 **Viewer 截图 / 前后帧对比 / 参考成片** 的逐步说明见示例文档：[`examples/diff-car-mujoco/`](../examples/diff-car-mujoco/)。
+带 **Viewer 截图** 的逐步说明见示例文档：[`examples/diff-car-mujoco/`](../examples/diff-car-mujoco/)。
 
 无 Key 时可用规则策略：`--policy instruction`（短语表，不调用云端）。录屏也可用 macOS「Cmd+Shift+5」对准 viewer 窗口。
+
+## 多轮 TUI 指挥（M2d）
+
+单次 `--instruction` 跑完即退出。若要**连续下达指令**且保持 MuJoCo 会话/本体状态：
+
+```bash
+export ARCHON_PYTHON="$(pwd)/.venv-mujoco/bin/python"
+
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:diff_car \
+  --policy instruction \
+  --viewer --tui --step-ms 0
+```
+
+- 终端进入 ratatui Chat：输入自然语言，`Enter` 发送  
+- 快捷命令：`/help` · `/estop` · `/quit`（或 Ctrl+C）  
+- Viewer 与 worker 跨多轮保持；退出时再 shutdown  
+- 可选：启动时加 `--instruction "..."` 作为第一轮自动发送  
+- LLM：`--policy llm`（需 `DEEPSEEK_API_KEY`）同样支持 `--tui`
 
 | 变量 / 参数 | 说明 |
 |-------------|------|
