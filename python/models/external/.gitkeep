@@ -1,0 +1,4 @@
+# Downloaded community MJCF (Menagerie etc.) — large meshes, do not commit
+/python/models/external/**
+!/python/models/external/.gitkeep
+!/python/models/external/README.md

@@ -15,8 +15,8 @@ use archon_policy::{ColorBlobPolicy, RobotKind};
 use archon_runtime::{Executive, ExecutiveConfig, RuntimeEvent};
 use archon_sim::SimBackend;
 use archon_sim_bridge::{
-    default_catalog_path, default_worker_script, ensure_script_exists, list_builtins, load_catalog,
-    resolve_model_spec, workspace_python_root, BridgeConfig, BridgedSimBackend,
+    default_catalog_path, default_worker_script, ensure_script_exists, list_builtins_status,
+    load_catalog, resolve_model_spec, workspace_python_root, BridgeConfig, BridgedSimBackend,
 };
 use clap::Parser;
 use tokio::sync::Mutex;
@@ -115,11 +115,17 @@ async fn main() -> Result<()> {
     if args.list_models {
         let catalog_path = default_catalog_path();
         let catalog = load_catalog(&catalog_path)?;
-        println!("Builtin MuJoCo assets (catalog: {}):", catalog_path.display());
-        for (name, desc) in list_builtins(&catalog) {
-            println!("  builtin:{name:24} {desc}");
+        println!("MuJoCo assets (catalog: {}):", catalog_path.display());
+        println!("  [ready] = files present; [fetch] = run scripts/fetch-menagerie-robot.sh");
+        for (name, desc, ready) in list_builtins_status(&catalog, &catalog_path) {
+            let mark = if ready { "ready" } else { "fetch" };
+            println!("  [{mark:5}] builtin:{name:20} {desc}");
         }
-        println!("\nAlso accepted: local .xml / directory, or https://…xml|zip");
+        println!("\nAlso accepted:");
+        println!("  --model /path/to/scene.xml   (or a directory containing MJCF)");
+        println!("  --model https://…xml|.zip    (cached under ~/.archon/assets/cache)");
+        println!("\nDocs: python/models/README.md");
+        println!("Fetch: ./scripts/fetch-menagerie-robot.sh --list");
         return Ok(());
     }
 

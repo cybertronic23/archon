@@ -21,6 +21,9 @@ pub struct BuiltinAsset {
     pub camera: Option<String>,
     #[serde(default)]
     pub default_instruction: Option<String>,
+    /// If true, missing files are expected until user runs fetch script.
+    #[serde(default)]
+    pub optional: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +61,26 @@ pub fn list_builtins(catalog: &AssetCatalog) -> Vec<(String, String)> {
         .collect()
 }
 
+/// (name, description, installed?)
+pub fn list_builtins_status(
+    catalog: &AssetCatalog,
+    catalog_path: &Path,
+) -> Vec<(String, String, bool)> {
+    let python_root = catalog_path
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("python"));
+    catalog
+        .builtins
+        .iter()
+        .map(|(k, v)| {
+            let path = python_root.join(&v.mjcf);
+            (k.clone(), v.description.clone(), path.exists())
+        })
+        .collect()
+}
+
 /// Spec: `builtin:name` | local path | `https://...xml|.zip`
 pub fn resolve_model_spec(spec: &str, catalog: &AssetCatalog, catalog_path: &Path) -> Result<ResolvedAsset> {
     let python_root = catalog_path
@@ -73,6 +96,17 @@ pub fn resolve_model_spec(spec: &str, catalog: &AssetCatalog, catalog_path: &Pat
             .with_context(|| format!("unknown builtin '{name}'. Try --list-models"))?;
         let path = python_root.join(&entry.mjcf);
         if !path.exists() {
+            if entry.optional {
+                bail!(
+                    "optional builtin '{name}' not installed (expected {}).\n\
+                     Fetch Menagerie robots with:\n\
+                       ./scripts/fetch-menagerie-robot.sh --list\n\
+                       ./scripts/fetch-menagerie-robot.sh {name}\n\
+                     Or pass a local MJCF: --model /path/to/scene.xml\n\
+                     See python/models/README.md",
+                    path.display()
+                );
+            }
             bail!("builtin mjcf missing: {}", path.display());
         }
         return Ok(ResolvedAsset {

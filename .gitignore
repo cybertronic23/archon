@@ -63,3 +63,9 @@ venv/
 *.mov
 *.ppm
 *.PPM
+
+# Downloaded Menagerie / community MuJoCo assets (meshes)
+/python/models/external/**
+!/python/models/external/.gitkeep
+!/python/models/external/README.md
+

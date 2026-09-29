@@ -93,6 +93,25 @@ cargo run -p archon-embodied-cli -- \
 
 语言策略为**确定性原语路由**（不是完整 VLA）；自由文本需命中已知短语。远程资产需为 **MJCF（.xml）或含 MJCF 的 zip**（公开 Menagerie 等请下载后 `--model` 指向 `scene.xml`）。
 
+### 添加著名 / 自定义资产
+
+完整说明：[`python/models/README.md`](../python/models/README.md)。
+
+```bash
+# 查看内置 + 需拉取的社区模型
+cargo run -p archon-embodied-cli -- --list-models
+
+# 拉取 Menagerie（Franka / Go2 / UR5e / SO-ARM100 …）到 python/models/external/
+./scripts/fetch-menagerie-robot.sh --list
+./scripts/fetch-menagerie-robot.sh franka
+
+cargo run -p archon-embodied-cli -- \
+  --backend mujoco --model builtin:franka_panda --viewer --step-ms 0
+
+# 自制 / Microduck：直接指路径，或拷到 external/ 并改 catalog.json
+--model /path/to/my_robot/scene.xml
+```
+
 设计：`notes/design/m2a-mujoco-complete.md`。
 
 ## LLM 自然语言（M2c，DeepSeek 等）

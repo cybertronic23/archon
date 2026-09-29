@@ -18,13 +18,37 @@
       "mjcf": "models/diff_car.xml",
       "camera": "scene",
       "default_instruction": "forward"
+    },
+    "franka_panda": {
+      "description": "Franka Emika Panda (Menagerie). Fetch: ./scripts/fetch-menagerie-robot.sh franka",
+      "mjcf": "models/external/franka_emika_panda/scene.xml",
+      "optional": true,
+      "default_instruction": "home"
+    },
+    "unitree_go2": {
+      "description": "Unitree Go2 (Menagerie). Fetch: ./scripts/fetch-menagerie-robot.sh go2",
+      "mjcf": "models/external/unitree_go2/scene.xml",
+      "optional": true,
+      "default_instruction": "home"
+    },
+    "ur5e": {
+      "description": "Universal Robots UR5e (Menagerie). Fetch: ./scripts/fetch-menagerie-robot.sh ur5e",
+      "mjcf": "models/external/universal_robots_ur5e/scene.xml",
+      "optional": true,
+      "default_instruction": "home"
+    },
+    "so_arm100": {
+      "description": "SO-ARM100 (Menagerie). Fetch: ./scripts/fetch-menagerie-robot.sh so100",
+      "mjcf": "models/external/trs_so_arm100/scene.xml",
+      "optional": true,
+      "default_instruction": "home"
     }
   },
   "remote_presets": {
-    "menagerie_readme": {
-      "description": "Google DeepMind MuJoCo Menagerie (clone or download a robot folder; point --model at its scene.xml)",
+    "menagerie": {
+      "description": "Google DeepMind MuJoCo Menagerie — run scripts/fetch-menagerie-robot.sh",
       "url": "https://github.com/google-deepmind/mujoco_menagerie",
-      "note": "Not auto-fetched as a single file; use a specific robot zip/path after download."
+      "note": "Installs into python/models/external/<robot>/; then use builtin:* or --model path."
     }
   }
 }

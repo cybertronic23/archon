@@ -64,7 +64,8 @@ cargo run -p archon-embodied-cli -- --step-ms 5 --auto-stop-ms 200
 ```
 
 更多参数与 ROS2 话题约定见 [docs/embodied-getting-started.md](docs/embodied-getting-started.md)。  
-带贴图的小车逐步示例：[examples/diff-car-mujoco/](examples/diff-car-mujoco/)。
+带贴图的小车逐步示例：[examples/diff-car-mujoco/](examples/diff-car-mujoco/)。  
+MuJoCo 资产（内置 / Menagerie / 自定义）：[python/models/README.md](python/models/README.md)。
 
 ### 数字平面 CLI（当前默认 workspace 未包含）
 
